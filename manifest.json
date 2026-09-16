@@ -1,0 +1,27 @@
+{
+  "name": "Bonus Bridge Pro",
+  "short_name": "Bonus Bridge",
+  "description": "Skill-based bridge scoring for 4 players — both sides earn points every deal",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0a1628",
+  "background_color": "#0a1628",
+  "scope": "./",
+  "lang": "en",
+  "categories": ["games", "utilities"],
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon",
+      "purpose": "any"
+    }
+  ]
+}
