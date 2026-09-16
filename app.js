@@ -98,6 +98,48 @@ class BonusBridgeApp {
     }
 
     // ─────────────────────────────────────────────
+    // SCORE TREND CHART (inline SVG, no dependencies)
+    // ─────────────────────────────────────────────
+    renderChartSvg() {
+        if (this.history.length < 2) return '';
+
+        const W = 300, H = 100, PAD = 8;
+        let nsCum = 0, ewCum = 0;
+        const nsPoints = [0], ewPoints = [0];
+        this.history.forEach(h => {
+            nsCum += h.bonusNsPoints;
+            ewCum += h.bonusEwPoints;
+            nsPoints.push(nsCum);
+            ewPoints.push(ewCum);
+        });
+
+        const maxVal = Math.max(1, ...nsPoints, ...ewPoints);
+        const stepX = (W - PAD * 2) / (nsPoints.length - 1);
+        const toXY = (i, v) => {
+            const x = PAD + i * stepX;
+            const y = H - PAD - (v / maxVal) * (H - PAD * 2);
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+        };
+
+        const nsPath = nsPoints.map((v, i) => toXY(i, v)).join(' ');
+        const ewPath = ewPoints.map((v, i) => toXY(i, v)).join(' ');
+
+        return `
+            <div class="chart-section">
+                <h3>Bonus Bridge — Cumulative Score</h3>
+                <svg viewBox="0 0 ${W} ${H}" class="trend-chart">
+                    <polyline points="${nsPath}" fill="none" stroke="#0a1628" stroke-width="2.5" />
+                    <polyline points="${ewPath}" fill="none" stroke="#c8aa5a" stroke-width="2.5" />
+                </svg>
+                <div class="chart-legend">
+                    <span><span class="legend-dot ns"></span> NS</span>
+                    <span><span class="legend-dot ew"></span> EW</span>
+                </div>
+            </div>
+        `;
+    }
+
+    // ─────────────────────────────────────────────
     // DASHBOARD
     // ─────────────────────────────────────────────
     renderDashboard() {
@@ -137,6 +179,9 @@ class BonusBridgeApp {
             ` : `<div class="deal-status empty">No deals played yet</div>`}
 
             <button id="btn-enter-contract" class="primary-action-btn">➕ Enter Deal ${this.dealNumber}</button>
+            <button id="btn-show-result" class="secondary-action-btn">📊 Show Result</button>
+
+            ${this.renderChartSvg()}
 
             ${this.history.length > 0 ? `
                 <div class="history-section">
@@ -162,6 +207,8 @@ class BonusBridgeApp {
             this.draft.vulnerable = this.scoring.determineVulnerability(this.dealNumber);
             this.showContractPopup();
         });
+
+        document.getElementById('btn-show-result').addEventListener('click', () => this.showResultsScreen());
     }
 
     setupFooterButtons() {
@@ -180,6 +227,62 @@ class BonusBridgeApp {
         document.getElementById('btn-help').addEventListener('click', () => {
             alert('Bonus Bridge Pro\n\nEnter each deal\'s contract, then the result, then the combined HCP and distribution for declarer\'s side. Both standard Party Bridge and Bonus Bridge scores are calculated and tracked.');
         });
+    }
+
+    // ─────────────────────────────────────────────
+    // RESULTS SCREEN — compares Party Bridge vs Bonus Bridge winner
+    // ─────────────────────────────────────────────
+    showResultsScreen() {
+        this.popupStep = 'results';
+        const s = this.scores;
+
+        const partyWinner = s.nsTotal === s.ewTotal ? 'TIE' : (s.nsTotal > s.ewTotal ? 'NS' : 'EW');
+        const bonusWinner = s.bonusNsTotal === s.bonusEwTotal ? 'TIE' : (s.bonusNsTotal > s.bonusEwTotal ? 'NS' : 'EW');
+        const winnersAgree = partyWinner === bonusWinner;
+
+        const winnerLabel = (w) => w === 'TIE' ? 'Tied' : `${w} Win${w === 'NS' ? '' : 's'}`;
+        const sideLabel = (w) => w === 'TIE' ? 'a tie' : w;
+
+        const content = document.getElementById('popup-content');
+        content.innerHTML = `
+            <div class="popup-title">📊 Result — ${this.history.length} Deal${this.history.length !== 1 ? 's' : ''} Played</div>
+
+            ${this.history.length === 0 ? `
+                <div class="license-message">No deals played yet — enter a deal first to see results.</div>
+                <button id="results-close-btn" class="popup-btn popup-btn-secondary">Close</button>
+            ` : `
+                <div class="score-result-box">
+                    <div class="sr-title">Party Bridge — ${winnerLabel(partyWinner)}</div>
+                    <div class="sr-scores">
+                        <div><div class="sr-team-label">NS</div><div class="sr-team-score ${partyWinner === 'NS' ? 'winner' : ''}">${s.nsTotal}</div></div>
+                        <div><div class="sr-team-label">EW</div><div class="sr-team-score ${partyWinner === 'EW' ? 'winner' : ''}">${s.ewTotal}</div></div>
+                    </div>
+                </div>
+
+                <div class="score-result-box bonus">
+                    <div class="sr-title">Bonus Bridge — ${winnerLabel(bonusWinner)}</div>
+                    <div class="sr-scores">
+                        <div><div class="sr-team-label">NS</div><div class="sr-team-score ${bonusWinner === 'NS' ? 'winner' : ''}">${s.bonusNsTotal}</div></div>
+                        <div><div class="sr-team-label">EW</div><div class="sr-team-score ${bonusWinner === 'EW' ? 'winner' : ''}">${s.bonusEwTotal}</div></div>
+                    </div>
+                </div>
+
+                ${!winnersAgree ? `
+                    <div class="winner-flip-banner">
+                        ⚡ Bonus Bridge changes the winner! Party Bridge favours ${sideLabel(partyWinner)}, but Bonus Bridge favours ${sideLabel(bonusWinner)} once skill is taken into account.
+                    </div>
+                ` : `
+                    <div class="winner-agree-banner">
+                        Both scoring systems agree — ${sideLabel(partyWinner)}.
+                    </div>
+                `}
+
+                <button id="results-close-btn" class="popup-btn popup-btn-primary">Close</button>
+            `}
+        `;
+
+        document.getElementById('popup-overlay').classList.remove('hidden');
+        document.getElementById('results-close-btn').addEventListener('click', () => this.closePopup());
     }
 
     // ─────────────────────────────────────────────
@@ -432,4 +535,10 @@ class BonusBridgeApp {
 
 document.addEventListener('DOMContentLoaded', () => {
     window.bonusBridgeApp = new BonusBridgeApp();
+
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch((err) => {
+            console.warn('Service worker registration failed:', err);
+        });
+    }
 });
