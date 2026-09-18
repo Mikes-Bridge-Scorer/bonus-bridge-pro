@@ -19,7 +19,9 @@ const STATIC_URLS = [
     './license.js',
     './manifest.json',
     './favicon.ico',
-    './favicon.svg'
+    './favicon.svg',
+    './icon-192.png',
+    './icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
